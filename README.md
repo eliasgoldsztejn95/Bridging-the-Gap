@@ -1,7 +1,8 @@
 # Bridging-the-Gap
 Regularized Reinforcement Learning for Improved Classical Motion Planning with Safety Modules
 
-https://user-images.githubusercontent.com/75029654/229076291-23a9fd2d-67bf-4096-99ed-5c15fba5552e.mp4
+
+https://github.com/eliasgoldsztejn95/Bridging-the-Gap/assets/75029654/dd3b88de-16da-475e-9408-4f19cf3a2298
 
 # Requirements
 
