@@ -4,104 +4,39 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from models.simple_vit import SimpleViT
-from models.simple_vit_reward import SimpleViTReward
-from models.cnn_goal import CNNWithGoal, CNNWithGoalReward, CNNWithGoalTiny, CNNWithGoalRewardTiny, CNNActor, CNNCritic, ActorCNNFine, CriticCNNFine, FCActor, FCCritic, CNNActorV2, CNNCriticV2, CNNActorV3, CNNCriticV3, CNNActorV4, CNNCriticV4, CNNActorV6, CNNCriticV6
+import CNNCriticV3, CNNActorV3
 
 from PIL import Image
 import matplotlib.pyplot as plt
 
-
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# Implementation of Twin Delayed Deep Deterministic Policy Gradients (TD3)
-# Paper: https://arxiv.org/abs/1802.09477
+# Implementation of Twin Delayed Deep Deterministic Policy Gradients (TD3) + Adaptation
 
 
 class Actor(nn.Module):
 	def __init__(self, state_dim, action_dim, max_action):
 		super(Actor, self).__init__()
 
-		# self._actor = SimpleViT(
-		# 	image_size=(state_dim, state_dim),
-		# 	patch_size=(6, 6),
-		# 	dim=128, #128
-		# 	depth=4, #4
-		# 	heads=4, #2
-		# 	mlp_dim=256, #128
-		# 	output_dim=action_dim
-		# ).to(device)
-
-		#self._actor = CNNWithGoal().to(device)
-
-		self._actor = CNNActorV3().to(device) # Winnning
-
-		#self._actor = ActorCNNFine().to(device)
-
-		#self._actor = FCActor().to(device)
+		self._actor = CNNActorV3().to(device) 
 		
 		self.max_action = max_action
-		
 
-	#def forward(self, state):
 	def forward(self, state, vel, goal):
-		#### state_tensor = torch.FloatTensor(state).to(device)
-
-		#return self.max_action * torch.tanh(self._actor(state))
 		return self.max_action * torch.tanh(self._actor(state, vel, goal))
 
 class Critic(nn.Module):
 	def __init__(self, state_dim, action_dim):
 		super(Critic, self).__init__()
 
-		# Q1 architecture
-		# self._q1 = SimpleViTReward(
-		# 	image_size=(state_dim, state_dim),
-		# 	patch_size=(6, 6),
-		# 	dim=128, #128
-		# 	depth=4, #4
-		# 	heads=4, #3
-		# 	mlp_dim=256, #256
-		# 	output_dim=1
-		# ).to(device)
-
-		#self._q1 = CNNWithGoalReward().to(device)
-
 		self._q1 = CNNCriticV3().to(device)  ## Winning
-
-		#self._q1 = CriticCNNFine().to(device)
-
-		#self._q1 = FCCritic().to(device)
-
-		# Q2 architecture
-		# self._q2 = SimpleViTReward(
-		# 	image_size=(state_dim, state_dim),
-		# 	patch_size=(6, 6),
-		# 	dim=128, 
-		# 	depth=4, 
-		# 	heads=4,
-		# 	mlp_dim=256,
-		# 	output_dim=1
-		# ).to(device)
-
-		#self._q2 = CNNWithGoalReward().to(device)
 
 		self._q2 = CNNCriticV3().to(device)  ## Winning
 
-		#self._q2 = CriticCNNFine().to(device)
-
-		#self._q2 = FCCritic().to(device) 
-
-
-	#def forward(self, state, action):
 	def forward(self, state, vel, goal, action):
 		sa = state#self.add_action_to_costmap(state, action)
 		v = vel
 		g = goal
-
-		# q1 = self._q1(sa, action)
-
-		# q2 = self._q2(sa, action)
 
 		q1 = self._q1(sa, v, g, action)
 
@@ -232,48 +167,10 @@ class TD3(object):
 			non_zero_linear_mask = (dwa_action[:, 0] != 0.0)
 
 			mse_loss_mask = F.mse_loss(self.actor(state, vel, goal)[non_zero_linear_mask], dwa_action[non_zero_linear_mask])
-			
-			#clipped_mse_loss = torch.clamp(mse_loss, min=threshold)
-
-			##print(f"MSE actor dwa: {mse_loss} --- {F.mse_loss(self.actor(state), dwa_action)}")		
-			##clipped_mse_loss = torch.clamp(F.mse_loss(self.actor(state), dwa_action), min=threshold) # Many dwa_actions are 0. We do not want to copy this behavior
 
 			# Compute actor loss
-			#print(dwa_action)
 
-			#actor_loss = -self.critic.Q1(state, vel, goal, self.actor(state, vel, goal)).mean() + 0*mse_loss_mask + 0*F.mse_loss(self.actor(state, vel, goal), dwa_action) # CDRL loss
-
-			#################
-			### DPO #########
-
-			pi = self.actor(state, vel, goal)
-			pi_tag = self.actor_target(state, vel, goal)
-			#lam = 1/self.critic.Q1(state, vel, goal, pi).abs().mean().detach()
-
-			actor_loss = -self.critic.Q1(state, vel, goal, pi).mean() - F.logsigmoid(-F.mse_loss(pi[non_zero_linear_mask], dwa_action[non_zero_linear_mask]) + 
-																			F.mse_loss(pi_tag[non_zero_linear_mask], dwa_action[non_zero_linear_mask]) + 
-																			F.mse_loss(pi_tag[non_zero_linear_mask], pi[non_zero_linear_mask])) # DPO loss
-
-			#print(f"MSE DPO loss: {(-F.mse_loss(pi[non_zero_linear_mask], dwa_action[non_zero_linear_mask]) + F.mse_loss(pi_tag[non_zero_linear_mask], dwa_action[non_zero_linear_mask]) + F.mse_loss(pi_tag[non_zero_linear_mask], pi[non_zero_linear_mask]))}")
-			#print(f"DPO loss: {-F.logsigmoid(-F.mse_loss(pi[non_zero_linear_mask], dwa_action[non_zero_linear_mask]) + F.mse_loss(pi_tag[non_zero_linear_mask], dwa_action[non_zero_linear_mask]) + F.mse_loss(pi_tag[non_zero_linear_mask], pi[non_zero_linear_mask]))}")
-			#print(f"(pi,dwa): {-F.mse_loss(pi[non_zero_linear_mask], dwa_action[non_zero_linear_mask])}, (pi_tag,dwa): {F.mse_loss(pi_tag[non_zero_linear_mask], dwa_action[non_zero_linear_mask])}, (pi_tag, pi): {F.mse_loss(pi_tag[non_zero_linear_mask], pi[non_zero_linear_mask])}")
-			#################
-			#################
-
-			#print(f"Q_loss: {lam*self.critic.Q1(state, vel, goal, pi).mean()}")
-			#print(f"actor dwa: {F.mse_loss(torch.zeros((256, 2)).to(device), dwa_action)}")
-
-			if self.total_it % 100 == 0:
-				#print(self.total_it)
-				#print(f"Q1: {self.critic.Q1(state, vel, goal, self.actor(state, vel, goal)).mean()}")
-				print(f"actor dwa: {F.mse_loss(self.actor(state, vel, goal), dwa_action)}")
-				#print(f"mse_loss_mask: {mse_loss_mask}")
-				#print(f"actor: {self.actor(state, vel, goal)[0:10]}")
-				#print(f"dwa: {dwa_action[0:10]}")
-				#print(f"dwa: {dwa_action[0:10][non_zero_linear_mask[0:10]]}")
-			#print(dwa_action)
-
-			#print(f"actor_loss: {actor_loss}")
+			actor_loss = -self.critic.Q1(state, vel, goal, self.actor(state, vel, goal)).mean() + mse_loss_mask 
 			
 			# Optimize the actor 
 			self.actor_optimizer.zero_grad()
