@@ -20,9 +20,10 @@ https://github.com/eliasgoldsztejn95/Bridging-the-Gap/assets/75029654/dd3b88de-1
 
 ## Training on simulation
 - Create your simulation environment of choice. In our case we used a realistic hospital world taken from: https://github.com/aws-robotics/aws-robomaker-hospital-world. We integrated moving people using: https://github.com/srl-freiburg/pedsim_ros. The steps for combining them can be found in **PTDRL Repository - Simulation**
-- Download your robot. In our case we experimented we used Turtlebot with waffle-pi.
-- Clone **ptdrl** folder. 
-- Train using: train_cdrl.py.  **save_model=True** arg to save neural networks.
+- Download your robot. In our case we used Turtlebot with waffle-pi.
+- Clone folder. 
+- Train RL: train.py.  **save_model=True** arg to save neural networks.
+- Train Supervisor: train_supervisor.py.
 
 ## Simulation, robot and training algorithm
 - **Bridging the Gap** was written in the OpenAI ROS fashion. This means that training, simulation, and robot environments are separated.
